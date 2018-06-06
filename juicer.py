@@ -55,7 +55,10 @@
 #	  essentially make sure that the program can do everything it needs to before we start 
 #	  actually running. Also check for grep install just in case
 # 23. Consider merging file_eval into main, passing too many variables, bad practice...
-
+# 24. Add compression support
+# 25. Currently throws out repeats with more reps than the current grouping, modify so they
+#	  write out to their own file
+# 26. Finish mop, attach to unrecoverable excepts
 
 # -------------------------------------------------------------------
 
@@ -102,7 +105,6 @@ def init(group_count, output_dir):
 
 	os.chdir("..")
 	
-	print(name_array)	
 	return name_array
 
 # mop function
@@ -221,7 +223,7 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 	return(final_frames[0])
 
 # prime_seq_eval function
-# > 
+# > Evaluates sequences using frame shifts 
 def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	global frame_multi
 	
@@ -274,10 +276,11 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 
 	# Evaluate each sequence, return its grouping and insert into group mtx
 	for seq_rec in seq_recs:
-		print(seq_rec.id)
+		#print(seq_rec.id)
 		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
-		print(grouping)
-		group_mtx[grouping].append(seq_rec)
+		#print(grouping)
+		if grouping <= grp_count:
+			group_mtx[grouping].append(seq_rec)
 		
 	return group_mtx
 
@@ -304,6 +307,7 @@ def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_arra
 	# Ignores files without fastq suffix
 	if seq_file.split(".")[-1] == "fastq":
 		# Grep out sequences containing motif
+		print("Evaluating sequence file:", seq_file)
 		cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
 		ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
 		if ret.returncode != 0:
@@ -349,6 +353,8 @@ def main():
 		os.chdir(fastq_dir)
 		for seq_file in os.listdir(os.getcwd()):
 			file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
+	except KeyboardInterrupt:
+		exit(1)
 	except Exception as err:
 		crit_error(err)
 
