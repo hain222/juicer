@@ -49,26 +49,61 @@
 # 17. Improve frame evaluation error
 # 18. Check reads before hand, throw out ones shorter than 2n where n is the length of the motif
 # 19. Need a better error handling system
+# 20. Program currently ignores prefixes, should this change?
+# 21. Does grep sequence need a multiplyer?
+# 22. might want init to create temp files as well, and maybe check variables.
+#	  essentially make sure that the program can do everything it needs to before we start 
+#	  actually running. Also check for grep install just in case
+# 23. Consider merging file_eval into main, passing too many variables, bad practice...
+
 
 # -------------------------------------------------------------------
 
 #Globals
 default_mismatches = 1
 default_groupings = 30
-start_grp = 1
+default_output = "juicer_out"
+start_grp = 1 # Currently unused
 frame_multi = 2
+zfill_amount = 4
 grep_temp = ".grep_temp_juicer"
+out_prefix = "juicer_group"
 
 import os
+import shutil
 import argparse
 import subprocess
 from Bio import SeqIO
 
 # init function
 # > creates initial environment and startup files
-def init():
+# > returns an array of file names, with nogroup as ele 0, 1 rep as ele 1 etc...
+def init(group_count, output_dir):
+	global out_prefix
+	global zfill_amount
 
-	return 0
+	# Init output dir, remove if already exists
+	try:
+		os.mkdir(output_dir)
+	except FileExistsError:
+		shutil.rmtree(output_dir)
+		os.mkdir(output_dir)
+	os.chdir(output_dir)	
+
+	# Init output files/array
+	name_array = []
+	no_group_name = out_prefix+"_nogroup.fasta"
+	open(no_group_name, 'w').close()
+	name_array.append(output_dir+"/"+no_group_name)
+	for group in range(1, group_count+1):
+		cur_name = out_prefix+str(group).zfill(zfill_amount)+".fasta"
+		open(cur_name, 'w').close()
+		name_array.append(output_dir+"/"+cur_name)
+
+	os.chdir("..")
+	
+	print(name_array)	
+	return name_array
 
 # mop function
 # > clean up function, deletes temporary files etc..
@@ -199,7 +234,7 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	#temp = seq_rec.seq[seq_ptr+seg_len:seq_ptr+2*seg_len]
 	#print(temp)
 
-	# Determine prefix existance
+	# Extract initial segment for frame_eval
 	init_seg = seq_rec.seq[seq_ptr:seq_ptr+(frame_multi*seg_len)]
 	mismatch = 0
 	
@@ -237,16 +272,35 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 	for cnt in range(grp_count+1):
 		group_mtx.append([])
 
-	# Evaluate each sequence, return its grouping
+	# Evaluate each sequence, return its grouping and insert into group mtx
 	for seq_rec in seq_recs:
-		#print(seq_rec.id)
+		print(seq_rec.id)
 		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
-		#print(grouping)
+		print(grouping)
+		group_mtx[grouping].append(seq_rec)
 		
+	return group_mtx
+
+# fasta_write function
+# > writes out a group_mtx to the initialized master files.
+def fasta_write(group_mtx, start_dir, name_array):
+	original_dir = os.getcwd()
+	os.chdir(start_dir)
+
+	#print(len(group_mtx))
+	for group_num in range(len(group_mtx)):
+		if group_mtx[group_num] != []:
+			for entry in group_mtx[group_num]:
+				with open(name_array[group_num], 'a') as fh:
+					fh.write(">%s\n%s\n" % (entry.description, entry.seq))
+
+	os.chdir(original_dir)
+
+	return 0
 
 # file_eval function
 # > file evaluation loop (iterator function)
-def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir):
+def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array):
 	# Ignores files without fastq suffix
 	if seq_file.split(".")[-1] == "fastq":
 		# Grep out sequences containing motif
@@ -258,8 +312,11 @@ def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir):
 
 		# Parse grep output
 		target_recs = grep_parse(ret.stdout, start_dir)
-		group_eval(target_recs, seq_motif, group_count, mismatches)
+		group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
+		fasta_write(group_mtx, start_dir, name_array)
+
 		#print(len(target_recs))
+		#print(group_mtx)
 
 # main function
 # > parses parameters and iterates over files
@@ -267,6 +324,7 @@ def main():
 	# Set globals
 	global default_mistmatches
 	global default_groupings
+	global default_output
 
 	# Argument parser
 	parser = argparse.ArgumentParser()
@@ -274,6 +332,7 @@ def main():
 	parser.add_argument('motif', help='motif HELP')
 	parser.add_argument('-g', '--number-of-groupings', default=default_groupings, help='number-of-groupings HELP', type=int)
 	parser.add_argument('-m', '--mismatches', default=default_mismatches, help='mistmatches HELP', type=int)
+	parser.add_argument('-o', '--output-name', default=default_output, help='output-name HELP')
 	args = parser.parse_args()
 
 	# Set parameters
@@ -281,13 +340,15 @@ def main():
 	seq_motif = args.motif
 	group_count = args.number_of_groupings
 	mismatches = args.mismatches
+	output_name = args.output_name
 	start_dir = os.getcwd()
 
 	# Catches problems with directory, not the files it contains
 	try:
+		name_array = init(group_count, output_name)
 		os.chdir(fastq_dir)
 		for seq_file in os.listdir(os.getcwd()):
-			file_eval(seq_file, seq_motif, group_count, mismatches, start_dir)
+			file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
 	except Exception as err:
 		crit_error(err)
 
