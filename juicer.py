@@ -108,9 +108,18 @@ def init(group_count, output_dir):
 	return name_array
 
 # mop function
-# > clean up function, deletes temporary files etc..
-def mop():
+# > clean up function, called when program quit unexpectedly
+def mop(start_dir, output_dir):
+	global grep_temp
 
+	try:
+		os.chdir(start_dir)
+		os.remove(grep_temp)
+		shutil.rmtree(output_dir)
+	except Exception:
+		pass
+	print()
+	
 	return 0
 
 # crit_error function
@@ -134,6 +143,8 @@ def grep_parse(grep_string, start_dir):
 	all_recs = []
 	for seq_rec in SeqIO.parse(start_dir + "/" + grep_temp, "fastq"):
 		all_recs.append(seq_rec)
+
+	os.remove(start_dir + "/" + grep_temp)
 
 	# Return all sequence records from the original grep_string
 	return all_recs
@@ -347,15 +358,25 @@ def main():
 	output_name = args.output_name
 	start_dir = os.getcwd()
 
-	# Catches problems with directory, not the files it contains
+	# Master try statement
 	try:
 		name_array = init(group_count, output_name)
 		os.chdir(fastq_dir)
 		for seq_file in os.listdir(os.getcwd()):
 			file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
+
+		# Remove empty output files
+		os.chdir(start_dir)
+		for name in name_array:
+			stats = os.stat(name)
+			if stats.st_size == 0:
+				os.remove(name)
+			
 	except KeyboardInterrupt:
+		mop(start_dir, output_name)
 		exit(1)
 	except Exception as err:
+		mop(start_dir, output_name)
 		crit_error(err)
 
 	return 0
