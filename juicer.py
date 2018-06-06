@@ -21,8 +21,11 @@
 # 3. Can set the number of allowed mismatches in a repeat, this applies to prefix repeats as well
 #	 i.e with motif AGT and mismatch set to 1, the seq GGAGTATTAGTATGGGG would be sorted into 
 #	 group 3
-# 4.
-# 5.
+# 4. Does not handle insertions/deletions, moves by frame of reference
+# 5. prefixes will also be subject to mismatching, complex system for finding starting frame
+# 6. sequences less than the 2n base pairs, with n being the length of the motif, will not
+#    evaluate correctly since the current function needs at least that much for its frame
+#	 evaluation 
 
 # TODO:
 # 1. Detail Notes better/Compelte descriptions
@@ -36,6 +39,16 @@
 # 9. Possibly add start_grp to parameters, (implement a range), so major changes may be
 #	 required for this 
 # 10. Should handle single base insertions/deletions in the future?
+# 11. Complex function to determine starting frame, show to expert
+# 12. Make option for a log/dump file that logs the decisions made for each read
+# 13. Compartamentalize the mismatch code
+# 14. Add constraints to the motif parameter >= 3 etc.
+# 15. Frame evaluation reaches a lot, needs more error checking (long reads, etc)
+# 16. Possible base the last piece of frame evaluation off of the sum of the target frame and its
+#	  sister frame
+# 17. Improve frame evaluation error
+# 18. Check reads before hand, throw out ones shorter than 2n where n is the length of the motif
+# 19. Need a better error handling system
 
 # -------------------------------------------------------------------
 
@@ -43,6 +56,7 @@
 default_mismatches = 1
 default_groupings = 30
 start_grp = 1
+frame_multi = 2
 grep_temp = ".grep_temp_juicer"
 
 import os
@@ -87,9 +101,94 @@ def grep_parse(grep_string, start_dir):
 	# Return all sequence records from the original grep_string
 	return all_recs
 
+# frame_eval function
+# > moves frame by frame to determine the most likely starting frame
+# > returns the index of the starting base of the most likely starting frame, or -1 if no
+# > sutiable frame could be found.
+def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
+	frame_idx = 0
+	frame_shift = []
+
+	# Primary Layer:
+	# Generate frame array
+	while frame_idx != len(seq_motif):
+		frame_seg = multi_seg[frame_idx:frame_idx+len(seq_motif)]
+		#print(frame_seg)
+		mismatch=0
+
+		for idx, base in enumerate(frame_seg):
+			if base != seq_motif[idx]:
+				mismatch += 1
+
+		frame_shift.append(mismatch)
+		frame_idx += 1
+	
+	#frame_shift = [5, 3, 3, 6, 5, 4]
+	#print(frame_shift)	
+	# Determine best matches
+	best_mismatch_array = []
+	cur_best_mismatch = max_mismatch
+	for idx, entry in enumerate(frame_shift):
+		if entry == cur_best_mismatch:
+			best_mismatch_array.append(idx)
+		elif entry < cur_best_mismatch:
+			best_mismatch_array.clear()
+			best_mismatch_array.append(idx)
+			cur_best_mismatch = entry
+	#print(best_mismatch_array)	
+
+	# Primary Layer Check:
+	# if triggered, none of the best matches in frame_shift were less
+	# than the set max mismatch
+	if best_mismatch_array == []:
+		return(-1)
+
+	# Secondary Layer:
+	# Examine best matches sister frames
+	final_frames = []
+	for frame_idx in best_mismatch_array:
+		sister_frame = full_seq[frame_idx+len(seq_motif):frame_idx+(2*len(seq_motif))]
+		#print(sister_frame)
+		#print(full_seq)
+		mismatch=0
+
+		for idx, base in enumerate(sister_frame):
+			if base != seq_motif[idx]:
+				mismatch+=1
+
+		if mismatch <= max_mismatch:
+			final_frames.append(frame_idx)
+			
+	#print(final_frames)
+
+	# Secondary Layer Check:
+	# if triggered, none of sister frames scored less or at the set max mismatch
+	if final_frames == []:
+
+		# Temporary bugfix, current algorithm discounts valid 1 rep sequences,
+		# this is a workaround but should be replaced with something better as it
+		# might cause other issues
+		if len(best_mismatch_array) == 1:
+			return(best_mismatch_array[0])
+		elif len(best_mismatch_array) > 1:
+			print("Encountered non-consistent frame array error")
+			return(-1)
+			
+		return(-1)
+
+	# Should be only one final frame, if not, throw an error and send to nogroup
+	# This is a case where the frame evaluation failed
+	if len(final_frames) > 1:
+		print("Multiple matches detected: Frame evaluation failed!")
+		return(-1)
+
+	# Else, should only be one viable frame, return this.
+	return(final_frames[0])
+
 # prime_seq_eval function
 # > 
 def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
+	global frame_multi
 	
 	seg_len = len(seq_motif)
 	seq_ptr = 0
@@ -99,7 +198,19 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	#print(tar_seg)
 	#temp = seq_rec.seq[seq_ptr+seg_len:seq_ptr+2*seg_len]
 	#print(temp)
-	while seq_ptr != len(seq_rec.seq):
+
+	# Determine prefix existance
+	init_seg = seq_rec.seq[seq_ptr:seq_ptr+(frame_multi*seg_len)]
+	mismatch = 0
+	
+	# Determine best starting frame
+	seq_ptr = frame_eval(init_seg, seq_rec.seq, seq_motif, max_mismatch)
+	if seq_ptr == -1:
+		return grouping
+	
+
+	# Plausible starting frame found
+	while seq_ptr != len(seq_rec.seq) and len(seq_rec.seq) - seq_ptr >= seg_len:
 		tar_seg = seq_rec.seq[seq_ptr:seq_ptr+seg_len]
 		mismatch=0
 		
@@ -128,8 +239,10 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 
 	# Evaluate each sequence, return its grouping
 	for seq_rec in seq_recs:
+		#print(seq_rec.id)
 		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
-		print(grouping)
+		#print(grouping)
+		
 
 # file_eval function
 # > file evaluation loop (iterator function)
@@ -140,7 +253,8 @@ def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir):
 		cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
 		ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
 		if ret.returncode != 0:
-			raise RuntimeError("subprocess child returned non-zero return code")
+			print("No matches found:", seq_file)
+			return
 
 		# Parse grep output
 		target_recs = grep_parse(ret.stdout, start_dir)
