@@ -65,6 +65,10 @@
 #	  write out to their own file
 # 26. +++Finish mop, attach to unrecoverable excepts
 # 27. Clean up code, make consistent
+# 28. Effectively utilize oop
+# 29. +++bug with long output paths
+# 30. Use repeat multiplier
+# 31. Begin implementing a single shifting system, with scoring system and weight based on blast
 
 # NOTES:
 # 1. Possibly base the last piece of frame evaluation off of the sum of the target frame and its
@@ -83,6 +87,7 @@ default_output = "juicer_out"
 start_grp = 1 # Currently unused
 frame_multi = 2	# Probably dont want to change this...
 zfill_amount = 4 # Amount of zero padding in file names
+min_motif_len = 5 # Minimum allowed motif length
 grep_temp = ".grep_temp_juicer"
 out_prefix = "juicer_group"
 
@@ -99,6 +104,7 @@ def init(group_count, output_dir):
 	global out_prefix
 	global zfill_amount
 
+	original_dir = os.getcwd()
 	# Init output dir, remove if already exists
 	try:
 		os.mkdir(output_dir)
@@ -110,11 +116,11 @@ def init(group_count, output_dir):
 	# Init output files/array
 	name_array = []
 	for group in range(group_count+1):
-		cur_name = out_prefix+str(group).zfill(zfill_amount)+".fasta"
+		cur_name = out_prefix+str(group).zfill(zfill_amount)+".fastq" # LINE CHANGE
 		open(cur_name, 'w').close()
 		name_array.append(output_dir+"/"+cur_name)
 
-	os.chdir("..")
+	os.chdir(original_dir)
 	
 	return name_array
 
@@ -164,6 +170,18 @@ def grep_parse(grep_string, start_dir):
 
 	# Return all sequence records from the original grep_string
 	return all_recs
+
+# parameter_check function
+# > checks input parameters and imposes set limits
+def parameter_check(seq_motif, group_count):
+	global min_motif_len
+	
+	if group_count == 0:
+		raise RuntimeError("group count set to zero!")
+	elif len(seq_motif) <= min_motif_len:
+		raise RuntimeError("motif too short")
+
+	return 0
 
 # frame_eval function
 # > moves frame by frame to determine the most likely starting frame
@@ -329,7 +347,7 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 	return group_mtx
 
 # fasta_write function
-# > writes out a group_mtx to the initialized output files.
+# > writes out a group_mtx to the initialized output files in fasta format.
 def fasta_write(group_mtx, start_dir, name_array):
 	original_dir = os.getcwd()
 	os.chdir(start_dir)
@@ -344,32 +362,22 @@ def fasta_write(group_mtx, start_dir, name_array):
 	os.chdir(original_dir)
 
 	return 0
+# fastq_write function
+# > writes out a group_mtx to the initialized output files in fastq format.
+def fastq_write(group_mtx, start_dir, name_array):
+	original_dir = os.getcwd()
+	os.chdir(start_dir)
 
-# file_eval function --- MOVED TO MAIN, NOT CURRENTLY USED
-# > file evaluation loop (iterator function) run this for every file processed
-def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array):
-	# Ignores files without fastq suffix
-	if seq_file.split(".")[-1] == "fastq":
+	for group_num in range(len(group_mtx)):
+		if group_mtx[group_num] != []:
+			for entry in group_mtx[group_num]:
+				with open(name_array[group_num], 'a') as fh:
+					#print(entry.format("fastq"))
+					fh.write(entry.format("fastq"))
 
-		# Grep out sequences containing motif
-		print("Evaluating sequence file:", seq_file)
-		cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
-		ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
-		if ret.returncode != 0:
-			print("No matches found:", seq_file)
-			return
+	os.chdir(original_dir)
 
-		# Parse grep output
-		target_recs = grep_parse(ret.stdout, start_dir)
-
-		# Generate Group matrix
-		group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
-	
-		# Write out file results
-		fasta_write(group_mtx, start_dir, name_array)
-
-		#print(len(target_recs))
-		#print(group_mtx)
+	return 0
 
 # main function
 # > parses parameters and iterates over files
@@ -396,8 +404,11 @@ def main():
 	output_name = args.output_name
 	start_dir = os.getcwd()
 
+	ret = parameter_check(seq_motif, group_count)
+
 	# Root try statement
 	try:
+		parameter_check(seq_motif, group_count)
 		name_array = init(group_count, output_name)
 		os.chdir(fastq_dir)
 	
@@ -425,7 +436,7 @@ def main():
 					group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
 	
 					# Write out file results
-					fasta_write(group_mtx, start_dir, name_array)
+					fastq_write(group_mtx, start_dir, name_array) # LINE CHANGE
 
 					#print(len(target_recs))
 					#print(group_mtx)
@@ -440,6 +451,8 @@ def main():
 			
 	except KeyboardInterrupt:
 		mop(start_dir, output_name)
+		exit(1)
+	except RuntimeError:
 		exit(1)
 	except Exception as err:
 		mop(start_dir, output_name)
