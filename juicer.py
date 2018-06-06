@@ -9,7 +9,7 @@
 # then sort according to the number of sequence repeats. Inputs a directory containing fastq 
 # reads, and outputs n number of files according to how many repeat groupings are desired
 
-# Usage: NA
+# Usage: try ./juicer.py -h
 
 # Compilation: NA
 
@@ -28,7 +28,7 @@
 #	 evaluation 
 
 # TODO:
-# 1. Detail Notes better/Compelte descriptions
+# 1. Detail Notes better/Complete descriptions
 # 2. Write parser help descriptions
 # 3. Error check all input parameters
 # 4. Add option for fasta, or have a specific optional for fasta and fastq
@@ -67,8 +67,8 @@ default_mismatches = 1
 default_groupings = 30
 default_output = "juicer_out"
 start_grp = 1 # Currently unused
-frame_multi = 2
-zfill_amount = 4
+frame_multi = 2	# Probably dont want to change this...
+zfill_amount = 4 # Amount of zero padding in file names
 grep_temp = ".grep_temp_juicer"
 out_prefix = "juicer_group"
 
@@ -95,10 +95,7 @@ def init(group_count, output_dir):
 
 	# Init output files/array
 	name_array = []
-	no_group_name = out_prefix+"_nogroup.fasta"
-	open(no_group_name, 'w').close()
-	name_array.append(output_dir+"/"+no_group_name)
-	for group in range(1, group_count+1):
+	for group in range(group_count+1):
 		cur_name = out_prefix+str(group).zfill(zfill_amount)+".fasta"
 		open(cur_name, 'w').close()
 		name_array.append(output_dir+"/"+cur_name)
@@ -112,6 +109,7 @@ def init(group_count, output_dir):
 def mop(start_dir, output_dir):
 	global grep_temp
 
+	# Attempt to remove any generated files
 	try:
 		os.chdir(start_dir)
 		os.remove(grep_temp)
@@ -144,6 +142,7 @@ def grep_parse(grep_string, start_dir):
 	for seq_rec in SeqIO.parse(start_dir + "/" + grep_temp, "fastq"):
 		all_recs.append(seq_rec)
 
+	# Remove temporary file
 	os.remove(start_dir + "/" + grep_temp)
 
 	# Return all sequence records from the original grep_string
@@ -153,6 +152,13 @@ def grep_parse(grep_string, start_dir):
 # > moves frame by frame to determine the most likely starting frame
 # > returns the index of the starting base of the most likely starting frame, or -1 if no
 # > sutiable frame could be found.
+# > Additional: return of -2 indicates that the seq encountered a non-consistent frame array 
+# > error. This indicates that two or more likely frames were found in which none had 
+# > sister frames <= the max set mismatch
+# > return of -3 indicates the multiple final frames were encountered. In this situation
+# > the frame evaluation is unable to determine a correct starting frame, and places the sequence
+# > in "nogroup"
+
 def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 	frame_idx = 0
 	frame_shift = []
@@ -173,6 +179,7 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 	
 	#frame_shift = [5, 3, 3, 6, 5, 4]
 	#print(frame_shift)	
+
 	# Determine best matches
 	best_mismatch_array = []
 	cur_best_mismatch = max_mismatch
@@ -192,7 +199,7 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 		return(-1)
 
 	# Secondary Layer:
-	# Examine best matches sister frames
+	# Examine best match's sister frames
 	final_frames = []
 	for frame_idx in best_mismatch_array:
 		sister_frame = full_seq[frame_idx+len(seq_motif):frame_idx+(2*len(seq_motif))]
@@ -210,7 +217,7 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 	#print(final_frames)
 
 	# Secondary Layer Check:
-	# if triggered, none of sister frames scored less or at the set max mismatch
+	# if triggered, none of the sister frames scored less or at the set max mismatch
 	if final_frames == []:
 
 		# Temporary bugfix, current algorithm discounts valid 1 rep sequences,
@@ -219,22 +226,22 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 		if len(best_mismatch_array) == 1:
 			return(best_mismatch_array[0])
 		elif len(best_mismatch_array) > 1:
-			print("Encountered non-consistent frame array error")
-			return(-1)
+			#print("Encountered non-consistent frame array error")
+			return(-2)
 			
 		return(-1)
 
 	# Should be only one final frame, if not, throw an error and send to nogroup
-	# This is a case where the frame evaluation failed
+	# This is a case where frame evaluation fails
 	if len(final_frames) > 1:
-		print("Multiple matches detected: Frame evaluation failed!")
-		return(-1)
+		#print("Multiple matches detected: Frame evaluation failed!")
+		return(-3)
 
 	# Else, should only be one viable frame, return this.
 	return(final_frames[0])
 
 # prime_seq_eval function
-# > Evaluates sequences using frame shifts 
+# > Evaluates sequences using frame shifts
 def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	global frame_multi
 	
@@ -253,11 +260,18 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	
 	# Determine best starting frame
 	seq_ptr = frame_eval(init_seg, seq_rec.seq, seq_motif, max_mismatch)
+	
+	# Layer check triggered
 	if seq_ptr == -1:
 		return grouping
-	
+	# Non-consistent frame array error
+	elif seq_ptr == -2:
+		return grouping
+	# Multiple matches error
+	elif seq_ptr == -3:
+		return grouping
 
-	# Plausible starting frame found
+	# Plausible starting frame found, begin counting repeats
 	while seq_ptr != len(seq_rec.seq) and len(seq_rec.seq) - seq_ptr >= seg_len:
 		tar_seg = seq_rec.seq[seq_ptr:seq_ptr+seg_len]
 		mismatch=0
@@ -275,7 +289,7 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	return grouping
 
 # group_eval function
-# > calls sequence evaluation function(s), generates grouping matrix and "nogroup" list
+# > calls sequence evaluation function(s), generates grouping matrix
 # > element 0 of grouping mtx will always be nogroup, and element 1 is group 1, etc...
 def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 	global start_grp # Currently unused
@@ -290,13 +304,15 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 		#print(seq_rec.id)
 		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
 		#print(grouping)
+
+		# Disregard sequence if its groupings is higher than the set one
 		if grouping <= grp_count:
 			group_mtx[grouping].append(seq_rec)
 		
 	return group_mtx
 
 # fasta_write function
-# > writes out a group_mtx to the initialized master files.
+# > writes out a group_mtx to the initialized output files.
 def fasta_write(group_mtx, start_dir, name_array):
 	original_dir = os.getcwd()
 	os.chdir(start_dir)
@@ -313,10 +329,11 @@ def fasta_write(group_mtx, start_dir, name_array):
 	return 0
 
 # file_eval function
-# > file evaluation loop (iterator function)
+# > file evaluation loop (iterator function) run this for every file processed
 def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array):
 	# Ignores files without fastq suffix
 	if seq_file.split(".")[-1] == "fastq":
+
 		# Grep out sequences containing motif
 		print("Evaluating sequence file:", seq_file)
 		cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
@@ -327,7 +344,11 @@ def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_arra
 
 		# Parse grep output
 		target_recs = grep_parse(ret.stdout, start_dir)
+
+		# Generate Group matrix
 		group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
+	
+		# Write out file results
 		fasta_write(group_mtx, start_dir, name_array)
 
 		#print(len(target_recs))
@@ -358,7 +379,7 @@ def main():
 	output_name = args.output_name
 	start_dir = os.getcwd()
 
-	# Master try statement
+	# Root try statement
 	try:
 		name_array = init(group_count, output_name)
 		os.chdir(fastq_dir)
