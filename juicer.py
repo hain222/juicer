@@ -22,43 +22,57 @@
 #	 i.e with motif AGT and mismatch set to 1, the seq GGAGTATTAGTATGGGG would be sorted into 
 #	 group 3
 # 4. Does not handle insertions/deletions, moves by frame of reference
-# 5. prefixes will also be subject to mismatching, complex system for finding starting frame
+# 5. 
 # 6. sequences less than the 2n base pairs, with n being the length of the motif, will not
 #    evaluate correctly since the current function needs at least that much for its frame
 #	 evaluation 
+# 7. Above examples use a small motif of 3 base pairs, but this program is untested for small
+#	 motifs (<6 bp) and probably would not function well
+# 8. Currently disregards reads with repeat counts higher than the user's group count variable
+# 9. Does not handle single/multi base insertions or deletions, since it uses a frame system
+#	 to count the repeats
 
 # TODO:
 # 1. Detail Notes better/Complete descriptions
 # 2. Write parser help descriptions
 # 3. Error check all input parameters
 # 4. Add option for fasta, or have a specific optional for fasta and fastq
-# 5. May need to add clean-up function for errors
+# 5. +++May need to add clean-up function for errors
 # 6. Add option for retaining all generated files not just outputs
-# 7. remove hardcoded decoding command
+# 7. 
 # 8. Find better solution for grep parsing besides writing a file...
-# 9. Possibly add start_grp to parameters, (implement a range), so major changes may be
+# 9. Possibly add start_grp to parameters, (implement a range), some major changes may be
 #	 required for this 
-# 10. Should handle single base insertions/deletions in the future?
+# 10. 
 # 11. Complex function to determine starting frame, show to expert
 # 12. Make option for a log/dump file that logs the decisions made for each read
 # 13. Compartamentalize the mismatch code
 # 14. Add constraints to the motif parameter >= 3 etc.
 # 15. Frame evaluation reaches a lot, needs more error checking (long reads, etc)
-# 16. Possible base the last piece of frame evaluation off of the sum of the target frame and its
-#	  sister frame
+# 16. 
 # 17. Improve frame evaluation error
 # 18. Check reads before hand, throw out ones shorter than 2n where n is the length of the motif
-# 19. Need a better error handling system
-# 20. Program currently ignores prefixes, should this change?
-# 21. Does grep sequence need a multiplyer?
+# 19. Need a better error handling system, root try should handle more exceptions/ should be more
+#	  individual try/except blocks
+# 20.
+# 21. 
 # 22. might want init to create temp files as well, and maybe check variables.
-#	  essentially make sure that the program can do everything it needs to before we start 
+#	  essentially make sure that the program can do everything it needs to before it starts
 #	  actually running. Also check for grep install just in case
-# 23. Consider merging file_eval into main, passing too many variables, bad practice...
+# 23. +++Consider merging file_eval into main, passing too many variables, bad practice...
 # 24. Add compression support
 # 25. Currently throws out repeats with more reps than the current grouping, modify so they
 #	  write out to their own file
-# 26. Finish mop, attach to unrecoverable excepts
+# 26. +++Finish mop, attach to unrecoverable excepts
+# 27. Clean up code, make consistent
+
+# NOTES:
+# 1. Possibly base the last piece of frame evaluation off of the sum of the target frame and its
+#	 sister frame
+# 2. Should handle single base insertions/deletions in the future?
+# 3. Program currently ignores prefixes, should this change?
+# 4. Does grep sequence need a multiplyer?
+
 
 # -------------------------------------------------------------------
 
@@ -110,9 +124,12 @@ def mop(start_dir, output_dir):
 	global grep_temp
 
 	# Attempt to remove any generated files
+	os.chdir(start_dir)
 	try:
-		os.chdir(start_dir)
 		os.remove(grep_temp)
+	except Exception:
+		pass
+	try:
 		shutil.rmtree(output_dir)
 	except Exception:
 		pass
@@ -328,7 +345,7 @@ def fasta_write(group_mtx, start_dir, name_array):
 
 	return 0
 
-# file_eval function
+# file_eval function --- MOVED TO MAIN, NOT CURRENTLY USED
 # > file evaluation loop (iterator function) run this for every file processed
 def file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array):
 	# Ignores files without fastq suffix
@@ -383,8 +400,36 @@ def main():
 	try:
 		name_array = init(group_count, output_name)
 		os.chdir(fastq_dir)
+	
+		# File evaluation
 		for seq_file in os.listdir(os.getcwd()):
-			file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
+			
+			#OLD FUNCTION CALL
+			#file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
+			
+			# Ignores files without fastq suffix
+			if seq_file.split(".")[-1] == "fastq":
+
+			# Grep out sequences containing motif
+				print("Evaluating sequence file:", seq_file)
+
+				cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
+				ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
+				if ret.returncode != 0:
+					print("No matches found:", seq_file)
+				else:
+					# Parse grep output
+					target_recs = grep_parse(ret.stdout, start_dir)
+
+					# Generate Group matrix
+					group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
+	
+					# Write out file results
+					fasta_write(group_mtx, start_dir, name_array)
+
+					#print(len(target_recs))
+					#print(group_mtx)
+
 
 		# Remove empty output files
 		os.chdir(start_dir)
