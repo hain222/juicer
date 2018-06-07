@@ -417,29 +417,40 @@ def main():
 	try:
 		parameter_check(seq_motif, group_count)
 		name_array = init(group_count, output_name)
+		print("Juicer initialized!")
 		os.chdir(fastq_dir)
 	
 		# File evaluation
+		print("Mismatch set to:", str(mismatches))
+		print("Group count set to:", str(group_count))
+		print("Beginning file evaluation...\n")
 		for seq_file in os.listdir(os.getcwd()):
 			
 			# Ignores files without fastq suffix
 			if seq_file.split(".")[-1] == "fastq":
 
 			# Grep out sequences containing motif
-				print("Evaluating sequence file:", seq_file)
+				print("\tEvaluating sequence file:", seq_file)
 
 				cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
 				ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
 				if ret.returncode != 0:
-					print("No matches found:", seq_file)
+					print("\t\tNo matches found:", seq_file)
 				else:
 					# Parse grep output
 					target_recs = grep_parse(ret.stdout, start_dir)
-
+					print("\t\tRecieved %s sequences from grep..." % (str(len(target_recs))))
 					# Generate Group matrix
+					print("\t\tGenerating group matrix...")
 					group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
-	
+					group_sum = 0
+					for group in group_mtx:
+						for entry in group:
+							group_sum += 1
+					#print("\t\tMatrix contains %s sequences..." % (str(group_sum)))	
+
 					# Write out file results
+					print("\t\tWriting out matrix...")
 					fastq_write(group_mtx, start_dir, name_array) # LINE CHANGE
 
 					#print(len(target_recs))
@@ -453,6 +464,7 @@ def main():
 			if stats.st_size == 0:
 				os.remove(name)
 			
+		print("\n Juicer run complete!")
 	except KeyboardInterrupt:
 		mop(start_dir, output_name)
 		exit(1)
