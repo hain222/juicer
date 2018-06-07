@@ -15,26 +15,31 @@ EVERYTHING IS SUBJECT TO, AND SHOULD BE EXPECTED TO CHANGE
 ## Getting Started
 
 Download the repository directly from the github webpage, or use git
+```
 git clone https://github.com/hain222/juicer
+```
 
 ### Prerequisites
 
 This program requires python3 as well as biopython
 
 ```
-To install python3 on linux
+# To install python3 on linux
 sudo apt-get install python3
 
-To install biopython3 on linux via pip3 (easiest)
+# To install biopython3 on linux via pip3 (easiest)
 sudo apt-get install pip3
 sudo pip3 install biopython
 ```
 
 ### Usage
 
-Once the prerequistes are installed, the program will be functional
-Run ./juicer.py -h 
-To see what the program requires and it's options
+Once the prerequistes are installed, the program will be functional. 
+Run juicer with the help flag to see program requirements and optional 
+values
+```
+./juicer.py -h
+```
 
 ## Authors
 
