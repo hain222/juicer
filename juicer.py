@@ -107,7 +107,7 @@ from Bio import SeqIO
 # init function
 # > creates initial environment and startup files
 # > returns an array of file names, with nogroup as ele 0, 1 rep as ele 1 etc...
-def init(group_count, output_dir):
+def init(group_count, output_dir, format_type):
 	global out_prefix
 	global zfill_amount
 
@@ -122,8 +122,13 @@ def init(group_count, output_dir):
 
 	# Init output files/array
 	name_array = []
+	if format_type == "fastq":
+		suffix = ".fastq"
+	elif format_type == "fasta":
+		suffix = ".fasta"
 	for group in range(group_count+1):
-		cur_name = out_prefix+str(group).zfill(zfill_amount)+".fastq" # LINE CHANGE
+		
+		cur_name = out_prefix+str(group).zfill(zfill_amount)+suffix
 		open(cur_name, 'w').close()
 		name_array.append(output_dir+"/"+cur_name)
 
@@ -369,11 +374,12 @@ def fasta_write(group_mtx, start_dir, name_array):
 		if group_mtx[group_num] != []:
 			for entry in group_mtx[group_num]:
 				with open(name_array[group_num], 'a') as fh:
-					fh.write(">%s\n%s\n" % (entry.description, entry.seq))
+					fh.write(entry.format("fasta"))
 
 	os.chdir(original_dir)
 
 	return 0
+
 # fastq_write function
 # > writes out a group_mtx to the initialized output files in fastq format.
 def fastq_write(group_mtx, start_dir, name_array):
@@ -404,6 +410,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('fastq_directory', help='Path to directory containing fastq files to be juiced. Searches each file for set motif and groups them based on the number of times this motif repeats from the start of the sequence')
 	parser.add_argument('motif', help='Nucleic motif to be used as the repeat base')
+	parser.add_argument('type', help="Output in fasta, or fastq format", choices=["fasta", "fastq"])
 	parser.add_argument('-g', '--number-of-groupings', default=default_groupings, help='Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
 	parser.add_argument('-m', '--mismatches', default=default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
 	parser.add_argument('-o', '--output-name', default=default_output, help='Name of the output directory for juicer (Default = juicer_out)')
@@ -413,6 +420,7 @@ def main():
 	# Set parameters
 	fastq_dir = args.fastq_directory
 	seq_motif = args.motif
+	format_type = args.type
 	group_count = args.number_of_groupings
 	mismatches = args.mismatches
 	output_name = args.output_name
@@ -422,7 +430,7 @@ def main():
 	# Root try statement
 	try:
 		parameter_check(seq_motif, grep_multi, group_count)
-		name_array = init(group_count, output_name)
+		name_array = init(group_count, output_name, format_type)
 		print("Juicer initialized!")
 		os.chdir(fastq_dir)
 	
@@ -458,7 +466,10 @@ def main():
 
 					# Write out file results
 					#print("\t\tWriting out matrix...")
-					fastq_write(group_mtx, start_dir, name_array) # LINE CHANGE
+					if format_type == "fastq":
+						fastq_write(group_mtx, start_dir, name_array)
+					elif format_type == "fasta":
+						fasta_write(group_mtx, start_dir, name_array)
 
 					#print(len(target_recs))
 					#print(group_mtx)
