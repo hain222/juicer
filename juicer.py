@@ -69,8 +69,12 @@
 # 29. +++bug with long output paths
 # 30. Use repeat multiplier
 # 31. Begin implementing a single shifting system, with scoring system and weight based on blast
+# 32. Add better output, make it presentable and informative
+# 33. Add third layer, that is find instance of motif that grep found,
+#	  and see if its frame matches with the frame found in the first two 
+#	  layers
 
-# NOTES:
+# TO_RESOLVE:
 # 1. Possibly base the last piece of frame evaluation off of the sum of the target frame and its
 #	 sister frame
 # 2. Should handle single base insertions/deletions in the future?
@@ -176,10 +180,13 @@ def grep_parse(grep_string, start_dir):
 def parameter_check(seq_motif, group_count):
 	global min_motif_len
 	
-	if group_count == 0:
-		raise RuntimeError("group count set to zero!")
-	elif len(seq_motif) <= min_motif_len:
-		raise RuntimeError("motif too short")
+	try:
+		if group_count == 0:
+			raise RuntimeError("group count set to zero!")
+		elif len(seq_motif) <= min_motif_len:
+			raise RuntimeError("motif too short must be >= " + str(min_motif_len))
+	except RuntimeError as err:
+		crit_error(err)
 
 	return 0
 
@@ -415,9 +422,6 @@ def main():
 		# File evaluation
 		for seq_file in os.listdir(os.getcwd()):
 			
-			#OLD FUNCTION CALL
-			#file_eval(seq_file, seq_motif, group_count, mismatches, start_dir, name_array)
-			
 			# Ignores files without fastq suffix
 			if seq_file.split(".")[-1] == "fastq":
 
@@ -451,8 +455,6 @@ def main():
 			
 	except KeyboardInterrupt:
 		mop(start_dir, output_name)
-		exit(1)
-	except RuntimeError:
 		exit(1)
 	except Exception as err:
 		mop(start_dir, output_name)
