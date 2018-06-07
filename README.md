@@ -27,7 +27,7 @@ This program requires python3 as well as biopython
 # To install python3 on linux
 sudo apt-get install python3
 
-# To install biopython3 on linux via pip3 (easiest)
+# To install biopython3 on linux via python3-pip (easiest)
 sudo apt-get install pip3
 sudo pip3 install biopython
 ```
