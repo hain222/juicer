@@ -6,10 +6,10 @@ number of times a given motif that appears at the beginning of a sequence,
 repeats. One way in wish we wish to apply this program is in extracting 
 large amounts of telomeric and their adjacent non-telomeric sequences from 
 libraries of genomic reads by taking advantage of a repetitive motif 
-sequence which identifies telomerws. Additional details as well as 
+sequence which identifies telomeres. Additional details as well as 
 examples, can be found in the header of the primary source code file.
 
-THIS PROGRAM IS IN EARLY DEVLOPMENT
+THIS PROGRAM IS IN EARLY DEVELOPMENT
 EVERYTHING IS SUBJECT TO, AND SHOULD BE EXPECTED TO CHANGE
 
 ## Getting Started
@@ -34,7 +34,7 @@ sudo pip3 install biopython
 
 ### Usage
 
-Once the prerequistes are installed, the program will be functional. 
+Once the prerequisites are installed, the program will be functional. 
 Run juicer with the help flag to see program requirements and optional 
 values
 ```
