@@ -27,10 +27,11 @@
 #    evaluate correctly since the current function needs at least that much for its frame
 #	 evaluation 
 # 7. Above examples use a small motif of 3 base pairs, but this program is untested for small
-#	 motifs (<6 bp) and probably would not function well
+#	 motifs and there is currently a cap placed on them, with the smalles possible motif 
+#	 beging 5 basepairs	
 # 8. Currently disregards reads with repeat counts higher than the user's group count variable
-# 9. Does not handle single/multi base insertions or deletions, since it uses a frame system
-#	 to count the repeats
+# 9. When evaluating multiple files, all grouped sequences are placed in the same output file
+#	 regardless of which file they originated in
 
 # TODO:
 # 1. Detail Notes better/Complete descriptions
@@ -76,7 +77,7 @@
 
 # TO_RESOLVE:
 # 1. Possibly base the last piece of frame evaluation off of the sum of the target frame and its
-#	 sister frame
+#	 sister frame?
 # 2. Should handle single base insertions/deletions in the future?
 # 3. Program currently ignores prefixes, should this change?
 # 4. Does grep sequence need a multiplyer?
@@ -87,8 +88,10 @@
 #Globals
 default_mismatches = 1
 default_groupings = 30
+default_grep_multi = 3
 default_output = "juicer_out"
 start_grp = 1 # Currently unused
+grep_multi = 3 # Number of consecutive copies of the motif grep will search for
 frame_multi = 2	# Probably dont want to change this...
 zfill_amount = 4 # Amount of zero padding in file names
 min_motif_len = 5 # Minimum allowed motif length
@@ -177,12 +180,14 @@ def grep_parse(grep_string, start_dir):
 
 # parameter_check function
 # > checks input parameters and imposes set limits
-def parameter_check(seq_motif, group_count):
+def parameter_check(seq_motif, grep_multi, group_count):
 	global min_motif_len
 	
 	try:
 		if group_count == 0:
 			raise RuntimeError("group count set to zero!")
+		elif grep_multi == 0:
+			raise RuntimeError("grep multiplyer set to zero!")
 		elif len(seq_motif) <= min_motif_len:
 			raise RuntimeError("motif too short must be >= " + str(min_motif_len))
 	except RuntimeError as err:
@@ -393,6 +398,7 @@ def main():
 	global default_mistmatches
 	global default_groupings
 	global default_output
+	global default_grep_multi
 
 	# Argument parser
 	parser = argparse.ArgumentParser()
@@ -401,6 +407,7 @@ def main():
 	parser.add_argument('-g', '--number-of-groupings', default=default_groupings, help='Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
 	parser.add_argument('-m', '--mismatches', default=default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
 	parser.add_argument('-o', '--output-name', default=default_output, help='Name of the output directory for juicer (Default = juicer_out)')
+	parser.add_argument('--grep-multi', default=default_grep_multi, help='Juicer uses the grep program to initial extract it\'s motif sequences. This option controls the number of consecutive copies of the motif grep will search for (Default = 3)', type=int)
 	args = parser.parse_args()
 
 	# Set parameters
@@ -409,13 +416,12 @@ def main():
 	group_count = args.number_of_groupings
 	mismatches = args.mismatches
 	output_name = args.output_name
+	grep_multi = args.grep_multi
 	start_dir = os.getcwd()
-
-	ret = parameter_check(seq_motif, group_count)
 
 	# Root try statement
 	try:
-		parameter_check(seq_motif, group_count)
+		parameter_check(seq_motif, grep_multi, group_count)
 		name_array = init(group_count, output_name)
 		print("Juicer initialized!")
 		os.chdir(fastq_dir)
@@ -423,6 +429,7 @@ def main():
 		# File evaluation
 		print("Mismatch set to:", str(mismatches))
 		print("Group count set to:", str(group_count))
+		print("Grep multiplyer set to:", str(grep_multi))
 		print("Beginning file evaluation...\n")
 		for seq_file in os.listdir(os.getcwd()):
 			
@@ -432,8 +439,8 @@ def main():
 			# Grep out sequences containing motif
 				print("\tEvaluating sequence file:", seq_file)
 
-				cmd = "grep -B 1 -A 2 "+seq_motif+" "+seq_file
-				ret = subprocess.run(["grep", "-B", "1", "-A", "2", seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
+				enlarge_seq_motif = seq_motif*grep_multi
+				ret = subprocess.run(["grep", "-B", "1", "-A", "2", enlarge_seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
 				if ret.returncode != 0:
 					print("\t\tNo matches found:", seq_file)
 				else:
@@ -444,13 +451,13 @@ def main():
 					print("\t\tGenerating group matrix...")
 					group_mtx = group_eval(target_recs, seq_motif, group_count, mismatches)
 					group_sum = 0
-					for group in group_mtx:
-						for entry in group:
+					for group_idx in range(1, len(group_mtx)):
+						for entry in group_mtx[group_idx]:
 							group_sum += 1
-					#print("\t\tMatrix contains %s sequences..." % (str(group_sum)))	
+					print("\t\tMatrix contains %s motif sequences..." % (str(group_sum)))	
 
 					# Write out file results
-					print("\t\tWriting out matrix...")
+					#print("\t\tWriting out matrix...")
 					fastq_write(group_mtx, start_dir, name_array) # LINE CHANGE
 
 					#print(len(target_recs))
