@@ -35,9 +35,9 @@
 
 # TODO:
 # 1. Detail Notes better/Complete descriptions
-# 2. Write parser help descriptions
-# 3. Error check all input parameters
-# 4. Add option for fasta, or have a specific optional for fasta and fastq
+# 2. +++Write parser help descriptions
+# 3. +++Error check all input parameters
+# 4. +++Add option for fasta, or have a specific optional for fasta and fastq
 # 5. +++May need to add clean-up function for errors
 # 6. Add option for retaining all generated files not just outputs
 # 7. 
@@ -45,10 +45,10 @@
 # 9. Possibly add start_grp to parameters, (implement a range), some major changes may be
 #	 required for this 
 # 10. 
-# 11. Complex function to determine starting frame, show to expert
+# 11. +++Complex function to determine starting frame, show to expert
 # 12. Make option for a log/dump file that logs the decisions made for each read
-# 13. Compartamentalize the mismatch code
-# 14. Add constraints to the motif parameter >= 3 etc.
+# 13. Compartamentalize the all code (oop)
+# 14. +++Add constraints to the motif parameter >= 5 etc.
 # 15. Frame evaluation reaches a lot, needs more error checking (long reads, etc)
 # 16. 
 # 17. Improve frame evaluation error
@@ -68,9 +68,9 @@
 # 27. Clean up code, make consistent
 # 28. Effectively utilize oop
 # 29. +++bug with long output paths
-# 30. Use repeat multiplier
+# 30. +++Use repeat multiplier
 # 31. Begin implementing a single shifting system, with scoring system and weight based on blast
-# 32. Add better output, make it presentable and informative
+# 32. Further improve output and its readability
 # 33. Add third layer, that is find instance of motif that grep found,
 #	  and see if its frame matches with the frame found in the first two 
 #	  layers
@@ -85,32 +85,17 @@
 
 # -------------------------------------------------------------------
 
-#Globals
-default_mismatches = 1
-default_groupings = 30
-default_grep_multi = 3
-default_output = "juicer_out"
-start_grp = 1 # Currently unused
-grep_multi = 3 # Number of consecutive copies of the motif grep will search for
-frame_multi = 2	# Probably dont want to change this...
-zfill_amount = 4 # Amount of zero padding in file names
-min_motif_len = 5 # Minimum allowed motif length
-grep_temp = ".grep_temp_juicer"
-out_prefix = "juicer_group"
-
 import os
 import shutil
 import argparse
 import subprocess
+import constants
 from Bio import SeqIO
 
 # init function
 # > creates initial environment and startup files
 # > returns an array of file names, with nogroup as ele 0, 1 rep as ele 1 etc...
 def init(group_count, output_dir, format_type):
-	global out_prefix
-	global zfill_amount
-
 	original_dir = os.getcwd()
 	# Init output dir, remove if already exists
 	try:
@@ -128,7 +113,7 @@ def init(group_count, output_dir, format_type):
 		suffix = ".fasta"
 	for group in range(group_count+1):
 		
-		cur_name = out_prefix+str(group).zfill(zfill_amount)+suffix
+		cur_name = constants.out_prefix+str(group).zfill(constants.zfill_amount)+suffix
 		open(cur_name, 'w').close()
 		name_array.append(output_dir+"/"+cur_name)
 
@@ -139,12 +124,10 @@ def init(group_count, output_dir, format_type):
 # mop function
 # > clean up function, called when program quit unexpectedly
 def mop(start_dir, output_dir):
-	global grep_temp
-
 	# Attempt to remove any generated files
 	os.chdir(start_dir)
 	try:
-		os.remove(grep_temp)
+		os.remove(constants.grep_temp)
 	except Exception:
 		pass
 	try:
@@ -164,21 +147,19 @@ def crit_error(error):
 # grep_parse function
 # > parses the output from the grep subprocess child
 def grep_parse(grep_string, start_dir):
-	global grep_temp
-
 	# Split and write to temporary file so SeqIO can handle
 	grep_split = grep_string.split("\n")
-	with open(start_dir + "/" + grep_temp, "w") as fh:
+	with open(start_dir + "/" + constants.grep_temp, "w") as fh:
 		for line in grep_split:
 			if line != "--":
 				fh.write(line+"\n")
 		
 	all_recs = []
-	for seq_rec in SeqIO.parse(start_dir + "/" + grep_temp, "fastq"):
+	for seq_rec in SeqIO.parse(start_dir + "/" + constants.grep_temp, "fastq"):
 		all_recs.append(seq_rec)
 
 	# Remove temporary file
-	os.remove(start_dir + "/" + grep_temp)
+	os.remove(start_dir + "/" + constants.grep_temp)
 
 	# Return all sequence records from the original grep_string
 	return all_recs
@@ -186,15 +167,13 @@ def grep_parse(grep_string, start_dir):
 # parameter_check function
 # > checks input parameters and imposes set limits
 def parameter_check(seq_motif, grep_multi, group_count):
-	global min_motif_len
-	
 	try:
 		if group_count == 0:
 			raise RuntimeError("group count set to zero!")
 		elif grep_multi == 0:
 			raise RuntimeError("grep multiplyer set to zero!")
-		elif len(seq_motif) <= min_motif_len:
-			raise RuntimeError("motif too short must be >= " + str(min_motif_len))
+		elif len(seq_motif) <= constants.min_motif_len:
+			raise RuntimeError("motif too short must be >= " + str(constants.min_motif_len))
 	except RuntimeError as err:
 		crit_error(err)
 
@@ -295,8 +274,6 @@ def frame_eval(multi_seg, full_seq, seq_motif, max_mismatch):
 # prime_seq_eval function
 # > Evaluates sequences using frame shifts
 def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
-	global frame_multi
-	
 	seg_len = len(seq_motif)
 	seq_ptr = 0
 	grouping = 0
@@ -307,7 +284,7 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	#print(temp)
 
 	# Extract initial segment for frame_eval
-	init_seg = seq_rec.seq[seq_ptr:seq_ptr+(frame_multi*seg_len)]
+	init_seg = seq_rec.seq[seq_ptr:seq_ptr+(constants.frame_multi*seg_len)]
 	mismatch = 0
 	
 	# Determine best starting frame
@@ -344,8 +321,6 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 # > calls sequence evaluation function(s), generates grouping matrix
 # > element 0 of grouping mtx will always be nogroup, and element 1 is group 1, etc...
 def group_eval(seq_recs, seq_motif, grp_count, mismatches):
-	global start_grp # Currently unused
-
 	# initialize grouping matrix	
 	group_mtx = []
 	for cnt in range(grp_count+1):
@@ -400,21 +375,15 @@ def fastq_write(group_mtx, start_dir, name_array):
 # main function
 # > parses parameters and iterates over files
 def main():
-	# Set globals
-	global default_mistmatches
-	global default_groupings
-	global default_output
-	global default_grep_multi
-
 	# Argument parser
 	parser = argparse.ArgumentParser()
 	parser.add_argument('fastq_directory', help='Path to directory containing fastq files to be juiced. Searches each file for set motif and groups them based on the number of times this motif repeats from the start of the sequence')
 	parser.add_argument('motif', help='Nucleic motif to be used as the repeat base')
 	parser.add_argument('type', help="Output in fasta, or fastq format", choices=["fasta", "fastq"])
-	parser.add_argument('-g', '--number-of-groupings', default=default_groupings, help='Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
-	parser.add_argument('-m', '--mismatches', default=default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
-	parser.add_argument('-o', '--output-name', default=default_output, help='Name of the output directory for juicer (Default = juicer_out)')
-	parser.add_argument('--grep-multi', default=default_grep_multi, help='Juicer uses the grep program to initial extract it\'s motif sequences. This option controls the number of consecutive copies of the motif grep will search for (Default = 3)', type=int)
+	parser.add_argument('-g', '--number-of-groupings', default=constants.default_groupings, help='Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
+	parser.add_argument('-m', '--mismatches', default=constants.default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
+	parser.add_argument('-o', '--output-name', default=constants.default_output, help='Name of the output directory for juicer (Default = juicer_out)')
+	parser.add_argument('--grep-multi', default=constants.default_grep_multi, help='Juicer uses the grep program to initial extract it\'s motif sequences. This option controls the number of consecutive copies of the motif grep will search for (Default = 3)', type=int)
 	args = parser.parse_args()
 
 	# Set parameters
