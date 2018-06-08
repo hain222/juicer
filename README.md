@@ -2,8 +2,8 @@
 
 The goal of this program is to evaluate large amounts of genomic sequences, 
 (reads primarily) in fasta or fastq format, and group them based off of the 
-number of times a given motif that appears at the beginning of a sequence, 
-repeats. One way in wish we wish to apply this program is in extracting 
+number of times a given motif, that appears at or near the beginning of a sequence, 
+repeats. One way we wish to apply this program is to extract
 large amounts of telomeric and their adjacent non-telomeric sequences from 
 libraries of genomic reads by taking advantage of a repetitive motif 
 sequence which identifies telomeres. Additional details as well as 
@@ -21,14 +21,15 @@ git clone https://github.com/hain222/juicer
 
 ### Prerequisites
 
-This program requires python3 as well as biopython
+This program requires python3 as well as biopython.
+Strongly recommend installing on a linux virtual machine.
 
 ```
 # To install python3 on linux
 sudo apt-get install python3
 
-# To install biopython3 on linux via python3-pip (easiest)
-sudo apt-get install pip3
+# To install biopython on linux via pip3 (easiest)
+sudo apt-get install python3-pip
 sudo pip3 install biopython
 ```
 
