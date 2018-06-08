@@ -314,6 +314,8 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 			
 		if mismatch > max_mismatch:
 			break
+			#if constants.disection_toggle:
+				#disection.dprint(start_ptr, seq_rec, grouping, len(seq_motif))
 			#return grouping
 		else:
 			grouping += 1
