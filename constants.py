@@ -31,7 +31,7 @@ default_grep_multi = 3
 default_output = "juicer_out"
 
 # Program configs
-disection_toggle = 1 # Toggle disection mode, 1=ON, 0=OFF
+disection_toggle = 0 # Toggle disection mode, 1=ON, 0=OFF
 start_grp = 1 # Currently Unused
 frame_multi = 2 # Don't change this
 zfill_amount = 4 # Amount of zero padding in file names
