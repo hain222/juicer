@@ -90,6 +90,7 @@ import shutil
 import argparse
 import subprocess
 import constants
+import disection
 from Bio import SeqIO
 
 # init function
@@ -300,6 +301,8 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 	elif seq_ptr == -3:
 		return grouping
 
+	start_ptr = seq_ptr
+
 	# Plausible starting frame found, begin counting repeats
 	while seq_ptr != len(seq_rec.seq) and len(seq_rec.seq) - seq_ptr >= seg_len:
 		tar_seg = seq_rec.seq[seq_ptr:seq_ptr+seg_len]
@@ -310,11 +313,15 @@ def prime_seq_eval(seq_rec, seq_motif, max_mismatch):
 				mismatch += 1
 			
 		if mismatch > max_mismatch:
-			return grouping
+			break
+			#return grouping
 		else:
 			grouping += 1
 			seq_ptr += seg_len
-
+	
+	# For disection mode
+	if constants.disection_toggle:
+		disection.dprint(start_ptr, seq_rec, grouping, len(seq_motif))
 	return grouping
 
 # group_eval function
@@ -326,9 +333,11 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 	for cnt in range(grp_count+1):
 		group_mtx.append([])
 
+
 	# Evaluate each sequence, return its grouping and insert into group mtx
 	for seq_rec in seq_recs:
 		#print(seq_rec.id)
+		# Insert new algorithm here
 		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
 		#print(grouping)
 
@@ -407,7 +416,11 @@ def main():
 		print("Mismatch set to:", str(mismatches))
 		print("Group count set to:", str(group_count))
 		print("Grep multiplyer set to:", str(grep_multi))
+		# Disection option
+		if constants.disection_toggle:
+			print("Disection toggled...")	
 		print("Beginning file evaluation...\n")
+		
 		for seq_file in os.listdir(os.getcwd()):
 			
 			# Ignores files without fastq suffix
