@@ -91,6 +91,7 @@ import argparse
 import subprocess
 import constants
 import disection
+from group import group
 from Bio import SeqIO
 
 # init function
@@ -340,7 +341,8 @@ def group_eval(seq_recs, seq_motif, grp_count, mismatches):
 	for seq_rec in seq_recs:
 		#print(seq_rec.id)
 		# Insert new algorithm here
-		grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
+		#grouping = prime_seq_eval(seq_rec, seq_motif, mismatches)
+		grouping = group(seq_rec.seq, seq_motif, mismatches)
 		#print(grouping)
 
 		# Disregard sequence if its groupings is higher than the set one

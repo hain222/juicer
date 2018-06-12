@@ -30,6 +30,11 @@ default_groupings = 30
 default_grep_multi = 3
 default_output = "juicer_out"
 
+# Gap configs
+one_rep_min = 5
+two_rep_min = 10
+max_size = 14
+
 # Program configs
 disection_toggle = 0 # Toggle disection mode, 1=ON, 0=OFF
 start_grp = 1 # Currently Unused
