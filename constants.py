@@ -24,6 +24,8 @@
 
 # -------------------------------------------------------------------
 
+import argparse
+
 # Default parameters
 default_mismatches = 1
 default_groupings = 30
@@ -36,13 +38,29 @@ two_rep_min = 10
 max_size = 14
 
 # Program configs
-disection_toggle = 0 # Toggle disection mode, 1=ON, 0=OFF
+disection_toggle = 0 # Toggle disection mode, 1=ON, 0=OFF | Currently NA
 start_grp = 1 # Currently Unused
 frame_multi = 2 # Don't change this
 zfill_amount = 4 # Amount of zero padding in file names
 min_motif_len = 5 # Minimum allowed motif length
 grep_temp = ".grep_temp_juicer"
 out_prefix = "juicer_group"
+type_choices = ["fasta", "fastq"]
 
-def update():
-	return 0
+# set_usr_const function
+# > uses argparse to set all input parameters
+# > returns args datastruct
+def set_usr_const():
+ # Argument parser
+	parser = argparse.ArgumentParser()
+	parser.add_argument('fastq_directory', help='Path to directory containing fastq files to be juiced. Searches each file for set motif and groups them based on the number of times this motif repeats from the start of the sequence')
+	parser.add_argument('motif', help='Nucleic motif to be used as the repeat base')
+	parser.add_argument('type', help="Output in fasta, or fastq format", choices=type_choices)
+	parser.add_argument('-g', '--number-of-groupings', default=default_groupings, help= 'Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
+	# Update for new method
+	parser.add_argument('-m', '--mismatches', default=default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
+	parser.add_argument('-o', '--output-name', default=default_output, help='Name of the output directory for juicer (Default = juicer_out)')
+	parser.add_argument('--grep-multi', default=default_grep_multi, help='Juicer uses the grep program to initial extract it\'s motif sequences. This option controls the number of consecutive copies of the motif grep will search for (Default = 3)', type=int)
+	args = parser.parse_args()
+
+	return args

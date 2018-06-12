@@ -388,16 +388,7 @@ def fastq_write(group_mtx, start_dir, name_array):
 # main function
 # > parses parameters and iterates over files
 def main():
-	# Argument parser
-	parser = argparse.ArgumentParser()
-	parser.add_argument('fastq_directory', help='Path to directory containing fastq files to be juiced. Searches each file for set motif and groups them based on the number of times this motif repeats from the start of the sequence')
-	parser.add_argument('motif', help='Nucleic motif to be used as the repeat base')
-	parser.add_argument('type', help="Output in fasta, or fastq format", choices=["fasta", "fastq"])
-	parser.add_argument('-g', '--number-of-groupings', default=constants.default_groupings, help='Specifies the number of groupings to be used (This also codes for the maximum repeat count)(Default = 30)', type=int)
-	parser.add_argument('-m', '--mismatches', default=constants.default_mismatches, help='Number of mismatches to be allowed in each instance of the motif (Default = 1)', type=int)
-	parser.add_argument('-o', '--output-name', default=constants.default_output, help='Name of the output directory for juicer (Default = juicer_out)')
-	parser.add_argument('--grep-multi', default=constants.default_grep_multi, help='Juicer uses the grep program to initial extract it\'s motif sequences. This option controls the number of consecutive copies of the motif grep will search for (Default = 3)', type=int)
-	args = parser.parse_args()
+	args = constants.set_usr_const()
 
 	# Set parameters
 	fastq_dir = args.fastq_directory

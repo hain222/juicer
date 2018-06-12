@@ -2,11 +2,18 @@
 # Date:
 # Author: Harrison Inocencio
 
+# Purpose: Grouping method 2 for juicer. Marks each feasible motif
+#		   occurance, and then uses a set range to decide which gaps
+#		   gaps are large enough to bridge and which are too large
+
 import constants
 
-seq = "CTAACCCTAAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCAAACCCAAACCCAAACCCAAACCCGAAGGGTTCCCAAGACGCCTAAACCCGAAGGGTTTAGGATATTATTTCGTTAGATCGGAAGAGAACACGTCTGAACTCCAGTCACCAGTCCCGAAATCGTATGCCGTCTTCTGCTTGAAAAAAAAAAA"
-motif = "CCCTAA"
+#seq = "CTAACCCTAAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCAAACCCAAACCCAAACCCAAACCCGAAGGGTTCCCAAGACGCCTAAACCCGAAGGGTTTAGGATATTATTTCGTTAGATCGGAAGAGAACACGTCTGAACTCCAGTCACCAGTCCCGAAATCGTATGCCGTCTTCTGCTTGAAAAAAAAAAA"
+#motif = "CCCTAA"
 
+# det_mismatch function
+# > Given two strings of equal size
+# > return the number of mismatches between the two strings
 def det_mismatch(frame, motif):
 	mismatch = 0
 	for idx in range(len(frame)):
@@ -15,8 +22,9 @@ def det_mismatch(frame, motif):
 
 	return mismatch
 
-#def start_frame(array):
-
+# hit_print function
+# > Print sequence and a second line containing vertical
+# > bars that mark each hit in the sequence
 def hit_print(seq, hits):
 	print(seq)
 	for idx in range(len(seq)):
@@ -26,14 +34,10 @@ def hit_print(seq, hits):
 			print(" ", end='')
 	print()
 
-def gap_eval(gap, m_array, motif):
-	gap_seg = m_array[gap[0]:gap[1]]
-	print(gap_seg)
-
-	return 0
-
+# count function
+# > count the number of repeats in the read using method 2
+# > output the number of repeats found
 def count(hits, m_array, motif):
-	#len_mod = 1 # constant
 	one_rep_min = constants.one_rep_min
 	two_rep_min = constants.two_rep_min
 	#three_rep_min = 15
@@ -55,17 +59,14 @@ def count(hits, m_array, motif):
 		#elif three_rep_min <= distances[idx] < max_size:
 			#rep_count +=3
 		else:
-			return rep_count
-
-		#if len(motif)-len_mod <= distances[idx] <= len(motif)+len_mod:
-		#	rep_count += 1
-		
-		#elif len(motif) + len_mod < distances[idx] > len(motif)+len_mod:
-		#	print(hits[idx:idx+2])
-		#	rep_count += gap_eval(hits[idx:idx+2], m_array, motif)
+			break
+			#return rep_count
 
 	return rep_count
 
+# group function
+# > Give sequence, motif, and some threshold (1)
+# > output the determined group for sequence
 def group(seq, motif, threshold):
 	#threshold = 1 # constant
 	m_array = []
