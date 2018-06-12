@@ -61,7 +61,7 @@
 #	  essentially make sure that the program can do everything it needs to before it starts
 #	  actually running. Also check for grep install just in case
 # 23. +++Consider merging file_eval into main, passing too many variables, bad practice...
-# 24. Add compression support
+# 24. +++Add compression support
 # 25. Currently throws out repeats with more reps than the current grouping, modify so they
 #	  write out to their own file
 # 26. +++Finish mop, attach to unrecoverable excepts
@@ -418,14 +418,18 @@ def main():
 		
 		for seq_file in os.listdir(os.getcwd()):
 			
-			# Ignores files without fastq suffix
-			if seq_file.split(".")[-1] == "fastq":
+			# Ignores files without fastq or gz suffix (Make neater?)
+			if seq_file.split(".")[-1] == "fastq" or seq_file.split(".")[-1] == "gz":
+				if seq_file.split(".")[-1] == "gz" and seq_file.split(".")[-2] == "fastq":
+					grep_command = "zgrep"
+				else:
+					grep_command = "grep"
 
 			# Grep out sequences containing motif
 				print("\tEvaluating sequence file:", seq_file)
 
 				enlarge_seq_motif = seq_motif*grep_multi
-				ret = subprocess.run(["grep", "-B", "1", "-A", "2", enlarge_seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
+				ret = subprocess.run([grep_command, "-B", "1", "-A", "2", enlarge_seq_motif, seq_file], stdout=subprocess.PIPE, universal_newlines=True)
 				if ret.returncode != 0:
 					print("\t\tNo matches found:", seq_file)
 				else:
